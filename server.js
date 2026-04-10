@@ -15,23 +15,23 @@ let isConnected = false;
 let clientReady = false;
 
 // =======================
-// CLIENT WHATSAPP (CLOUD READY)
+// CLIENT WHATSAPP (RAILWAY READY)
 // =======================
 const client = new Client({
     authStrategy: new LocalAuth({
-        dataPath: './session' // garante persistência
+        dataPath: './session'
     }),
     puppeteer: {
-        headless: true,
+        headless: "new",
+        executablePath: "/usr/bin/chromium",
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
+            '--disable-gpu',
             '--no-first-run',
             '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
+            '--single-process'
         ]
     }
 });
@@ -54,16 +54,21 @@ client.on('ready', () => {
     qrCode = null;
 });
 
-// DESCONECTOU
+// DESCONECTADO
 client.on('disconnected', (reason) => {
-    console.log('❌ WhatsApp desconectado:', reason);
+    console.log('❌ Desconectado:', reason);
     isConnected = false;
     clientReady = false;
 
-    // tenta reconectar automaticamente
+    // reconectar automático
     setTimeout(() => {
         client.initialize();
     }, 5000);
+});
+
+// ERRO AUTH
+client.on('auth_failure', msg => {
+    console.log('Erro autenticação:', msg);
 });
 
 // RECEBER MENSAGENS
@@ -74,23 +79,18 @@ client.on('message', msg => {
 
         console.log(`📩 ${msg.from}: ${msg.body}`);
     } catch (err) {
-        console.log('Erro mensagem:', err.message);
+        console.log('Erro msg:', err.message);
     }
 });
 
-// ERRO
-client.on('auth_failure', msg => {
-    console.log('Erro de autenticação:', msg);
-});
-
-// INICIAR
+// INICIAR CLIENTE
 client.initialize();
 
 // =======================
 // ROTAS
 // =======================
 
-// ROOT (evita erro 502)
+// ROOT (evita 502)
 app.get('/', (req, res) => {
     res.send('🚀 WhatsApp Backend ONLINE');
 });
@@ -98,7 +98,7 @@ app.get('/', (req, res) => {
 // QR
 app.get('/qr', (req, res) => {
     if (!qrCode) {
-        return res.send('⏳ QR ainda não disponível, aguarde...');
+        return res.send('⏳ QR ainda não disponível...');
     }
 
     res.send(`
@@ -121,7 +121,7 @@ app.get('/status', (req, res) => {
     });
 });
 
-// ENVIAR MENSAGEM
+// ENVIAR
 app.get('/send-simple', async (req, res) => {
     const { number, message } = req.query;
 
