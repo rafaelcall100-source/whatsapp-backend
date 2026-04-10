@@ -2,36 +2,32 @@ const express = require('express');
 const cors = require('cors');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
+const puppeteer = require('puppeteer'); // IMPORTANTE
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // =======================
-// VARIÁVEIS
-// =======================
 let qrCode = null;
 let isConnected = false;
 let clientReady = false;
 
 // =======================
-// CLIENT WHATSAPP (RAILWAY READY)
+// CLIENT WHATSAPP
 // =======================
 const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './session'
     }),
     puppeteer: {
-        headless: "new",
-        executablePath: "/usr/bin/chromium",
+        headless: true,
+        executablePath: puppeteer.executablePath(), // 🔥 AUTOMÁTICO
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process'
+            '--disable-gpu'
         ]
     }
 });
@@ -40,13 +36,11 @@ const client = new Client({
 // EVENTOS
 // =======================
 
-// QR
 client.on('qr', async (qr) => {
     console.log('📲 QR gerado');
     qrCode = await qrcode.toDataURL(qr);
 });
 
-// CONECTADO
 client.on('ready', () => {
     console.log('✅ WhatsApp conectado!');
     isConnected = true;
@@ -54,74 +48,43 @@ client.on('ready', () => {
     qrCode = null;
 });
 
-// DESCONECTADO
-client.on('disconnected', (reason) => {
-    console.log('❌ Desconectado:', reason);
+client.on('disconnected', () => {
+    console.log('❌ Desconectado');
     isConnected = false;
     clientReady = false;
 
-    // reconectar automático
     setTimeout(() => {
         client.initialize();
     }, 5000);
 });
 
-// ERRO AUTH
-client.on('auth_failure', msg => {
-    console.log('Erro autenticação:', msg);
-});
-
-// RECEBER MENSAGENS
 client.on('message', msg => {
-    try {
-        if (msg.from === 'status@broadcast') return;
-        if (msg.from.includes('@g.us')) return;
+    if (msg.from === 'status@broadcast') return;
+    if (msg.from.includes('@g.us')) return;
 
-        console.log(`📩 ${msg.from}: ${msg.body}`);
-    } catch (err) {
-        console.log('Erro msg:', err.message);
-    }
+    console.log(`📩 ${msg.from}: ${msg.body}`);
 });
 
-// INICIAR CLIENTE
 client.initialize();
 
 // =======================
 // ROTAS
 // =======================
 
-// ROOT (evita 502)
 app.get('/', (req, res) => {
-    res.send('🚀 WhatsApp Backend ONLINE');
+    res.send('🚀 ONLINE');
 });
 
-// QR
 app.get('/qr', (req, res) => {
-    if (!qrCode) {
-        return res.send('⏳ QR ainda não disponível...');
-    }
+    if (!qrCode) return res.send('⏳ Aguarde QR...');
 
-    res.send(`
-        <html>
-            <body style="display:flex;justify-content:center;align-items:center;height:100vh;background:#111;color:#fff;">
-                <div style="text-align:center">
-                    <h2>Escaneie o QR</h2>
-                    <img src="${qrCode}" />
-                </div>
-            </body>
-        </html>
-    `);
+    res.send(`<img src="${qrCode}" />`);
 });
 
-// STATUS
 app.get('/status', (req, res) => {
-    res.json({
-        connected: isConnected,
-        ready: clientReady
-    });
+    res.json({ connected: isConnected });
 });
 
-// ENVIAR
 app.get('/send-simple', async (req, res) => {
     const { number, message } = req.query;
 
@@ -130,26 +93,20 @@ app.get('/send-simple', async (req, res) => {
     }
 
     if (!clientReady) {
-        return res.send('WhatsApp ainda não está pronto');
+        return res.send('WhatsApp não pronto');
     }
 
     try {
-        const chatId = number + "@c.us";
-
-        await client.sendMessage(chatId, message);
-
-        res.send('Mensagem enviada 🚀');
-    } catch (error) {
-        console.log(error);
-        res.send('Erro: ' + error.message);
+        await client.sendMessage(number + "@c.us", message);
+        res.send('Enviado 🚀');
+    } catch (err) {
+        res.send('Erro: ' + err.message);
     }
 });
 
 // =======================
-// PORTA (RAILWAY)
-// =======================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log('🚀 Servidor rodando na porta', PORT);
+    console.log('🚀 Rodando na porta', PORT);
 });
