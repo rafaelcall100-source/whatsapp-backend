@@ -14,13 +14,12 @@ let qrCode = null;
 let isConnected = false;
 
 // =======================
-// CLIENT WHATSAPP
+// CLIENT WHATSAPP (RAILWAY)
 // =======================
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        headless: false,
-        executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     }
 });
@@ -42,32 +41,29 @@ client.on('ready', () => {
     qrCode = null;
 });
 
-// RECEBER MENSAGENS (FILTRADO)
+// RECEBER MENSAGENS
 client.on('message', msg => {
     try {
-        // ignorar status
         if (msg.from === 'status@broadcast') return;
-
-        // ignorar grupos
         if (msg.from.includes('@g.us')) return;
 
         console.log(`📩 ${msg.from}: ${msg.body}`);
     } catch (err) {
-        console.log('Erro ao ler mensagem:', err.message);
+        console.log('Erro:', err.message);
     }
 });
 
-// INICIAR CLIENT
+// INICIAR
 client.initialize();
 
 // =======================
 // ROTAS
 // =======================
 
-// QR
+// QR (AGORA FUNCIONA ONLINE)
 app.get('/qr', (req, res) => {
     if (!qrCode) {
-        return res.send('QR ainda não disponível, atualize...');
+        return res.send('QR ainda não disponível...');
     }
 
     res.send(`
@@ -84,28 +80,29 @@ app.get('/status', (req, res) => {
     res.json({ connected: isConnected });
 });
 
-// ENVIAR (SIMPLES VIA URL)
+// ENVIAR MENSAGEM
 app.get('/send-simple', async (req, res) => {
     const { number, message } = req.query;
 
     if (!number || !message) {
-        return res.send('Informe number e message na URL');
+        return res.send('Informe number e message');
     }
 
     try {
         const chatId = number + "@c.us";
-
         await client.sendMessage(chatId, message);
 
-        res.send('Mensagem enviada com sucesso 🚀');
+        res.send('Mensagem enviada 🚀');
     } catch (error) {
         res.send('Erro: ' + error.message);
     }
 });
 
 // =======================
-// START
+// PORTA DINÂMICA (RAILWAY)
 // =======================
-app.listen(3000, () => {
-    console.log('🚀 Servidor rodando em http://localhost:3000');
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+    console.log('🚀 Servidor rodando');
 });
